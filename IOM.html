@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Youssef's Journey - Interactive Flow Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals (Slate, Amber, Teal) -->
+    <!-- Application Structure Plan: The application is designed as an interactive "Path Explorer" dashboard. This structure was chosen over a linear document view to effectively communicate the game's core branching narrative. A main content area displays the current scene, while a persistent "Player State" tracker dynamically visualizes the consequences (Mindset, Risk Score) of each choice. This cause-and-effect simulation allows users to intuitively understand the game mechanics and explore different narrative paths, which is the primary goal of a game flow document. -->
+    <!-- Visualization & Content Choices: Report Info: Scene-by-Scene Flow -> Goal: Organize & Explore -> Viz/Method: Interactive cards/buttons for choices -> Interaction: Click-to-progress simulation, dynamically rendering the next scene based on the choice. Justification: Makes the branching logic tangible and easy to follow. Report Info: Risk Score -> Goal: Inform/Compare -> Viz/Method: Dynamic horizontal bar chart -> Interaction: Updates in real-time with each choice. Justification: Provides immediate, salient visual feedback on the player's increasing vulnerability. Library: Chart.js. Report Info: Endings -> Goal: Inform -> Viz/Method: Content cards. Interaction: The relevant ending is highlighted based on the simulated path. Justification: Clearly connects player actions to final outcomes. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 40px;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-slate-900">Youssef's Journey</h1>
+            <p class="text-lg text-slate-600 mt-2">Interactive Game Flow Explorer</p>
+        </header>
+
+        <div class="lg:grid lg:grid-cols-3 lg:gap-8">
+            <main class="lg:col-span-2">
+                <div id="intro-section" class="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <h2 class="text-2xl font-bold mb-3 text-slate-900">Game Vision & Concept</h2>
+                    <p class="text-slate-600">This experience simulates the journey of a young Egyptian man who travels to Europe and becomes vulnerable to human trafficking. The game aims to build empathy and educate players on the dangers of irregular migration by allowing them to make difficult choices under pressure, directly experiencing how a series of seemingly small decisions can lead down a dangerous path.</p>
+                </div>
+
+                <div id="simulation-section" class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-slate-900">Interactive Path Simulation</h2>
+                        <button id="reset-button" class="bg-teal-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors">Reset Simulation</button>
+                    </div>
+                    <div id="scene-container">
+                    </div>
+                </div>
+                 <div id="endings-section" class="mt-8">
+                    <h2 class="text-2xl font-bold text-slate-900 mb-4">Possible Endings</h2>
+                    <div id="endings-container" class="grid md:grid-cols-3 gap-4">
+                    </div>
+                </div>
+            </main>
+
+            <aside class="lg:col-span-1 mt-8 lg:mt-0">
+                <div class="bg-white p-6 rounded-lg shadow-md sticky top-8">
+                    <h3 class="text-xl font-bold mb-4 text-slate-900">Player State Tracker</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="font-semibold text-slate-600">Mindset:</p>
+                            <p id="mindset-status" class="text-lg font-bold text-teal-700">-</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-600">Knowledge:</p>
+                            <p id="knowledge-status" class="text-slate-700">None</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-600">Risk Score:</p>
+                            <div class="chart-container">
+                                <canvas id="riskScoreChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        const gameData = {
+            scenes: {
+                1: {
+                    title: "Scene 1: Cairo – The Departure",
+                    description: "In a warm, sunlit apartment in Cairo, Youssef prepares for his first trip to Europe. His tourist visa is for a limited time, but he dreams of staying longer. He needs advice.",
+                    decisionPoint: "Who do you seek advice from?",
+                    choices: [
+                        { text: "Professional Agent", nextScene: 2, stateChange: { mindset: "Cautious", riskScore: 10 } },
+                        { text: "Casual Agent", nextScene: 2, stateChange: { mindset: "Risk-Tolerant", riskScore: 30 } },
+                        { text: "Shady Agent", nextScene: 2, stateChange: { mindset: "Deceived", riskScore: 50 } },
+                        { text: "Cautious Friend", nextScene: 2, stateChange: { mindset: "Hesitant", riskScore: 15 } },
+                        { text: "Glamorous Friend", nextScene: 2, stateChange: { mindset: "Overconfident", riskScore: 40 } },
+                        { text: "Somber Friend", nextScene: 2, stateChange: { mindset: "Anxious", riskScore: 20 } },
+                    ]
+                },
+                2: {
+                    title: "Scene 2: The Arrival",
+                    description: "After a tense border crossing, Youssef arrives in a disorienting new city. He checks into a stark hostel room, the air thick with possibility and uncertainty.",
+                    decisionPoint: "What should you do next?",
+                    choices: [
+                        { text: "Explore the City", nextScene: 3, prerequisite: { mindset: ["Cautious", "Hesitant", "Anxious"] }, stateChange: { riskScore: -5 } },
+                        { text: "Look for Informal Work", nextScene: 3, prerequisite: { mindset: ["Risk-Tolerant", "Deceived"] }, stateChange: { riskScore: 20 } },
+                        { text: "Ignore Visa Warnings", nextScene: 3, prerequisite: { mindset: ["Overconfident"] }, stateChange: { riskScore: 15, mindset: "Desperate" } },
+                    ]
+                },
+                3: {
+                    title: "Scene 3: Visa Expiry",
+                    description: "A notification buzzes on the phone: the visa expired yesterday. News of immigration raids plays on the hostel TV. The walls feel like they are closing in.",
+                    decisionPoint: "Your visa has expired. What now?",
+                    choices: [
+                        { text: "Return to Egypt", nextScene: 'ending-reintegration', prerequisite: { riskScore: { max: 39 } }, stateChange: { riskScore: 0, mindset: "Returning" } },
+                        { text: "Stay and Hide", nextScene: 4, prerequisite: { riskScore: { min: 40 } }, stateChange: { riskScore: 25, mindset: "Desperate" } },
+                        { text: "Seek Help from Local Community", nextScene: 4, prerequisite: { mindset: ["Anxious", "Hesitant"] }, stateChange: { riskScore: 5, knowledge: { hasHeardWarning: true } } },
+                    ]
+                },
+                4: {
+                    title: "Scene 4: The Offer",
+                    description: "In a smoky café, a charismatic man named Nikos offers a job in a warehouse. 'Easy work, good pay, no papers needed,' he says with a confident smile. A waitress gives a concerned glance.",
+                    decisionPoint: "A man named Nikos offers you a job. Trust or doubt?",
+                    choices: [
+                        { text: "Accept Offer", nextScene: 5, prerequisite: { knowledge: { hasHeardWarning: false }, riskScore: { min: 50 } }, stateChange: { riskScore: 30 } },
+                        { text: "Refuse and Seek Help", nextScene: 'ending-hiding', prerequisite: { knowledge: { hasHeardWarning: true } }, stateChange: { riskScore: -10 } },
+                        { text: "Ask Questions (then forced to choose)", nextScene: 4, stateChange: { riskScore: 10 }, note: "Asking questions angers Nikos, increasing pressure and risk. You must still choose to accept or refuse."}
+                    ]
+                },
+                5: {
+                    title: "Scene 5: The Warehouse",
+                    description: "The warehouse is cold and oppressive. The gates are locked. Youssef's passport is taken 'for safekeeping'. He's promised €500/month, but days pass with no pay and no freedom.",
+                    decisionPoint: "Survive the initial shock. Escape or endure?",
+                    choices: [
+                        { text: "Endure the Job", nextScene: 'ending-caught', stateChange: { riskScore: 90, mindset: "Broken" } },
+                        { text: "Attempt to Escape", nextScene: 6, stateChange: { mindset: "Resisting" } },
+                    ]
+                },
+                6: {
+                    title: "Scene 6: The Turning Point",
+                    description: "Late at night, Youssef finds a hidden phone behind a crate. His hands tremble. This is his only chance.",
+                    decisionPoint: "You find a hidden phone. Who do you call?",
+                    choices: [
+                        { text: "Call Egyptian Embassy", nextScene: 'ending-rescue', stateChange: {} },
+                        { text: "Contact NGO/IOM", nextScene: 'ending-rescue', stateChange: {} },
+                        { text: "Call Nikos", nextScene: 'ending-caught', stateChange: {} },
+                    ]
+                },
+            },
+            endings: {
+                "ending-rescue": { title: "Ending 1: Rescue", description: "Authorities or aid workers arrive. Youssef is taken to a safe house to begin the long process of recovery. He is a survivor.", outcome: "safe" },
+                "ending-hiding": { title: "Ending 2: Continued Hiding", description: "Free from traffickers but still undocumented, Youssef lives in the shadows, constantly in fear. His future is uncertain.", outcome: "uncertain" },
+                "ending-caught": { title: "Ending 3: Caught", description: "Hope is extinguished. Youssef is punished by his captors. The final scene is grim, emphasizing his tragic fate.", outcome: "danger" },
+                "ending-reintegration": { title: "Potential Ending: Reintegration", description: "Youssef chooses the difficult but safe path home. He connects with reintegration programs, starting a new, hopeful chapter in Egypt.", outcome: "safe" }
+            }
+        };
+
+        let playerState;
+        let riskChart;
+
+        const mindsetStatusEl = document.getElementById('mindset-status');
+        const knowledgeStatusEl = document.getElementById('knowledge-status');
+        const sceneContainerEl = document.getElementById('scene-container');
+        const resetButtonEl = document.getElementById('reset-button');
+        const endingsContainerEl = document.getElementById('endings-container');
+
+        function initializeChart() {
+            const ctx = document.getElementById('riskScoreChart').getContext('2d');
+            riskChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Risk Score'],
+                    datasets: [{
+                        label: 'Risk Score',
+                        data: [0],
+                        backgroundColor: ['#10b981'], // emerald-500
+                        borderColor: ['#047857'], // emerald-700
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                display: false
+                            },
+                             grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                             ticks: {
+                                display: false
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return `Risk Score: ${context.raw}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateRiskChart(score) {
+            riskChart.data.datasets[0].data[0] = score;
+            let bgColor = '#10b981'; // green
+            if (score > 66) {
+                bgColor = '#ef4444'; // red-500
+            } else if (score > 33) {
+                bgColor = '#f59e0b'; // amber-500
+            }
+            riskChart.data.datasets[0].backgroundColor[0] = bgColor;
+            riskChart.update('none');
+        }
+
+        function updateStateUI() {
+            mindsetStatusEl.textContent = playerState.mindset;
+            const knowledgeKeys = Object.keys(playerState.knowledge);
+            if (knowledgeKeys.length > 0 && playerState.knowledge.hasHeardWarning) {
+                knowledgeStatusEl.textContent = "Heard trafficker warning";
+            } else {
+                knowledgeStatusEl.textContent = "None";
+            }
+            updateRiskChart(playerState.riskScore);
+        }
+
+        function checkPrerequisite(prereq) {
+            if (!prereq) return true;
+            if (prereq.mindset && !prereq.mindset.includes(playerState.mindset)) return false;
+            if (prereq.riskScore) {
+                if (prereq.riskScore.min && playerState.riskScore < prereq.riskScore.min) return false;
+                if (prereq.riskScore.max && playerState.riskScore > prereq.riskScore.max) return false;
+            }
+            if (prereq.knowledge) {
+                 if (prereq.knowledge.hasHeardWarning === false && (playerState.knowledge.hasHeardWarning === true)) return false;
+                 if (prereq.knowledge.hasHeardWarning === true && !(playerState.knowledge.hasHeardWarning === true)) return false;
+            }
+            return true;
+        }
+
+        function handleChoice(choice) {
+            const stateChange = choice.stateChange;
+            if (stateChange.mindset) {
+                playerState.mindset = stateChange.mindset;
+            }
+            if (stateChange.riskScore) {
+                playerState.riskScore = Math.max(0, Math.min(100, playerState.riskScore + stateChange.riskScore));
+            }
+            if(stateChange.knowledge) {
+                playerState.knowledge = {...playerState.knowledge, ...stateChange.knowledge};
+            }
+            
+            updateStateUI();
+            
+            if (String(choice.nextScene).startsWith('ending-')) {
+                renderEnding(choice.nextScene);
+            } else {
+                renderScene(choice.nextScene);
+            }
+        }
+
+        function renderScene(sceneId) {
+            const scene = gameData.scenes[sceneId];
+            if (!scene) return;
+
+            sceneContainerEl.innerHTML = '';
+            
+            const titleEl = document.createElement('h3');
+            titleEl.className = "text-xl font-bold mb-2 text-slate-800";
+            titleEl.textContent = scene.title;
+            
+            const descEl = document.createElement('p');
+            descEl.className = "text-slate-600 mb-4";
+            descEl.textContent = scene.description;
+            
+            const decisionEl = document.createElement('p');
+            decisionEl.className = "font-semibold mb-4 text-slate-700";
+            decisionEl.textContent = scene.decisionPoint;
+
+            const choicesContainer = document.createElement('div');
+            choicesContainer.className = "grid sm:grid-cols-2 gap-4";
+
+            const availableChoices = scene.choices.filter(c => checkPrerequisite(c.prerequisite));
+
+            availableChoices.forEach(choice => {
+                const button = document.createElement('button');
+                button.className = "text-left p-4 bg-slate-100 hover:bg-teal-100 rounded-lg transition-colors border border-slate-200";
+                
+                const choiceText = document.createElement('span');
+                choiceText.className = "font-semibold text-slate-800";
+                choiceText.textContent = choice.text;
+                button.appendChild(choiceText);
+
+                if(choice.note) {
+                    const noteText = document.createElement('p');
+                    noteText.className = "text-sm text-slate-500 mt-1";
+                    noteText.textContent = choice.note;
+                    button.appendChild(noteText);
+                }
+
+                button.onclick = () => {
+                    choicesContainer.querySelectorAll('button').forEach(btn => {
+                        btn.disabled = true;
+                        btn.classList.remove('hover:bg-teal-100');
+                        btn.classList.add('opacity-50');
+                    });
+                    button.classList.remove('opacity-50');
+                    button.classList.add('bg-teal-200', 'border-teal-400');
+                    setTimeout(() => handleChoice(choice), 700);
+                };
+                choicesContainer.appendChild(button);
+            });
+
+            sceneContainerEl.append(titleEl, descEl, decisionEl, choicesContainer);
+        }
+
+        function renderEnding(endingId) {
+            const ending = gameData.endings[endingId];
+            sceneContainerEl.innerHTML = '';
+
+            const titleEl = document.createElement('h3');
+            titleEl.className = "text-xl font-bold mb-2 text-slate-800";
+            titleEl.textContent = "Path Completed";
+            
+            const cardEl = document.createElement('div');
+            const outcomeColorClasses = {
+                safe: 'border-teal-500 bg-teal-50',
+                uncertain: 'border-amber-500 bg-amber-50',
+                danger: 'border-red-500 bg-red-50'
+            };
+            cardEl.className = `p-4 rounded-lg border-l-4 ${outcomeColorClasses[ending.outcome]}`;
+
+            const endingTitle = document.createElement('h4');
+            endingTitle.className = "font-bold text-lg text-slate-900";
+            endingTitle.textContent = ending.title;
+
+            const endingDesc = document.createElement('p');
+            endingDesc.className = "text-slate-700 mt-1";
+            endingDesc.textContent = ending.description;
+
+            cardEl.append(endingTitle, endingDesc);
+            sceneContainerEl.append(titleEl, cardEl);
+
+            document.getElementById(endingId).classList.add('ring-4', 'ring-teal-500', 'shadow-xl');
+        }
+
+        function renderAllEndings() {
+            endingsContainerEl.innerHTML = '';
+            for(const id in gameData.endings) {
+                const ending = gameData.endings[id];
+                const card = document.createElement('div');
+                card.id = id;
+                const outcomeColorClasses = {
+                    safe: 'border-teal-500 bg-white',
+                    uncertain: 'border-amber-500 bg-white',
+                    danger: 'border-red-500 bg-white'
+                };
+                card.className = `p-4 rounded-lg shadow-md border-t-4 ${outcomeColorClasses[ending.outcome]} transition-all duration-300`;
+                
+                const title = document.createElement('h3');
+                title.className = 'font-bold text-md text-slate-800';
+                title.textContent = ending.title;
+                
+                const desc = document.createElement('p');
+                desc.className = 'text-sm text-slate-600 mt-1';
+                desc.textContent = ending.description;
+                
+                card.append(title, desc);
+                endingsContainerEl.appendChild(card);
+            }
+        }
+        
+        function startSimulation() {
+            playerState = {
+                mindset: "Hopeful",
+                riskScore: 10,
+                knowledge: {}
+            };
+            renderAllEndings();
+            updateStateUI();
+            renderScene(1);
+        }
+
+        resetButtonEl.addEventListener('click', startSimulation);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeChart();
+            startSimulation();
+        });
+
+    </script>
+</body>
+</html>
+
